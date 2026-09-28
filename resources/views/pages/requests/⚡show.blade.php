@@ -660,6 +660,7 @@ class extends Component {
 
                             <div class="flex justify-end">
                                 <flux:button variant="primary" wire:click="resolveSystem({{ $row->id }})"
+                                             wire:key="resolve-{{ $row->id }}-{{ $completedCount }}"
                                              :wire:confirm="$resolveConfirmation">
                                     {{ __('Resolve') }}
                                 </flux:button>

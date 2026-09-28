@@ -243,3 +243,11 @@ describe('reopening', function () {
         expect($this->modmailRow->refresh()->status)->toBe(RequestSystemStatus::Done);
     });
 });
+
+test('the resolve button is recreated whenever the number of checked steps changes', function () {
+    systemsPanel()
+        ->assertSeeHtml('wire:key="resolve-' . $this->modmailRow->id . '-0"')
+        ->call('toggleStep', $this->modmailRow->id, $this->connect->id)
+        ->assertSeeHtml('wire:key="resolve-' . $this->modmailRow->id . '-1"')
+        ->assertDontSeeHtml('wire:key="resolve-' . $this->modmailRow->id . '-0"');
+});
