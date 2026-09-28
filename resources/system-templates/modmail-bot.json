@@ -1,0 +1,131 @@
+{
+    "format_version": 1,
+    "slug": "modmail-bot",
+    "name": "Modmail bot",
+    "description": "Threads, notes and block list stored by the Modmail bot ([kyb3r/modmail](https://github.com/modmail-dev/modmail)) in its MongoDB database `modmail_bot`. Discord IDs are stored as strings.",
+    "response_period_days": null,
+    "steps": [
+        {
+            "title": "Connect",
+            "request_type": null,
+            "instructions": [
+                "Open a MongoDB shell on the bot's database:",
+                "",
+                "```sh",
+                "mongosh \"<MONGO_URI>\"",
+                "```",
+                "",
+                "Then select the database:",
+                "",
+                "```js",
+                "use modmail_bot",
+                "```",
+                "",
+                "Run the commands of the following steps in this shell. Fill in the Discord ID once at the top of the systems panel, and every command below is completed with it."
+            ]
+        },
+        {
+            "title": "Preview what exists",
+            "request_type": null,
+            "instructions": [
+                "Count what the bot holds about the person, without changing anything:",
+                "",
+                "```js",
+                "// Threads they opened",
+                "db.logs.countDocuments({ \"recipient.id\": \"{{discord_id}}\" });",
+                "",
+                "// Other threads where they wrote messages",
+                "db.logs.countDocuments({ \"recipient.id\": { $ne: \"{{discord_id}}\" }, \"messages.author.id\": \"{{discord_id}}\" });",
+                "",
+                "// Persistent staff notes about them",
+                "db.notes.countDocuments({ recipient: \"{{discord_id}}\" });",
+                "",
+                "// Block list entries",
+                "db.config.find({ $or: [{ \"blocked.{{discord_id}}\": { $exists: true } }, { blocked_whitelist: \"{{discord_id}}\" }] }, { _id: 1 });",
+                "```",
+                "",
+                "Write the counts in the result summary."
+            ]
+        },
+        {
+            "title": "Delete their own threads",
+            "request_type": "deletion",
+            "instructions": [
+                "Deletes every thread the person opened, **as a whole**, staff replies and regular `?note` notes included.",
+                "",
+                "```js",
+                "db.logs.deleteMany({ \"recipient.id\": \"{{discord_id}}\" });",
+                "```"
+            ]
+        },
+        {
+            "title": "Remove their messages from other threads",
+            "request_type": "deletion",
+            "instructions": [
+                "In threads opened by someone else, removes only the messages written by the person:",
+                "",
+                "```js",
+                "db.logs.updateMany({ \"messages.author.id\": \"{{discord_id}}\" }, { $pull: { messages: { \"author.id\": \"{{discord_id}}\" } } });",
+                "```"
+            ]
+        },
+        {
+            "title": "Delete persistent staff notes about them",
+            "request_type": "deletion",
+            "instructions": [
+                "Persistent notes (`?note persistent`) are attached to the person and shown again in every new thread they open.",
+                "",
+                "```js",
+                "db.notes.deleteMany({ recipient: \"{{discord_id}}\" });",
+                "```"
+            ]
+        },
+        {
+            "title": "Block list: kept by default",
+            "request_type": "deletion",
+            "instructions": [
+                "If the person is blocked, the block entry is **kept for moderation purposes**. Note it in the result summary so the requester is told what was kept and why.",
+                "",
+                "Check the block reason:",
+                "",
+                "```js",
+                "db.config.find({ \"blocked.{{discord_id}}\": { $exists: true } }, { \"blocked.{{discord_id}}\": 1 });",
+                "```",
+                "",
+                "The reason should be short and factual (e.g. \"Harassment of staff\"). If it contains more (quotes, opinions, details about other people…), replace it with a factual one: `?unblock` the person, then `?block` them again with the shorter reason.",
+                "",
+                "To remove the block entry entirely instead:",
+                "",
+                "```js",
+                "db.config.updateMany({}, { $unset: { \"blocked.{{discord_id}}\": \"\" }, $pull: { blocked_whitelist: \"{{discord_id}}\" } });",
+                "```"
+            ]
+        },
+        {
+            "title": "Plugin data",
+            "request_type": null,
+            "instructions": [
+                "Installed plugins can store user data in their own collections. List them:",
+                "",
+                "```js",
+                "db.getCollectionNames().filter((name) => name.startsWith(\"plugins.\"));",
+                "```",
+                "",
+                "For each plugin that stores data about users, look for the person's ID and handle it like the rest. Mention what was found in the result summary."
+            ]
+        },
+        {
+            "title": "Outside MongoDB",
+            "request_type": "deletion",
+            "instructions": [
+                "The database is not the only copy. On Discord, the bot also left:",
+                "",
+                "- the old **thread channels**, if they were not deleted when closed;",
+                "- the **log channel** messages (embeds) summarizing each closed thread;",
+                "- **attachments** sent in threads, which stay on Discord's CDN.",
+                "",
+                "Delete them by hand if needed, and mention it in the result summary."
+            ]
+        }
+    ]
+}
